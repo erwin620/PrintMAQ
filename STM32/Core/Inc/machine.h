@@ -14,7 +14,8 @@ typedef enum
   MAQ_HACIENDO_HOME,
   MAQ_EN_HOME,
   MAQ_ERROR,
-  MAQ_JOG
+  MAQ_JOG,
+  MAQ_IMPRIMIENDO
 } Machine_State_t;
 
 void Machine_Init(void);

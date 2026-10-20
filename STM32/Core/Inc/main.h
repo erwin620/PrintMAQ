@@ -75,6 +75,26 @@ void Error_Handler(void);
    TODO: confirmar el sentido en banco. */
 #define STROKE_HOME_DIR       GPIO_PIN_RESET
 
+/* Driver DM556 - eje squeegee, mismo cableado que el stroke */
+#define SQUEEGEE_PUL_PORT     GPIOC
+#define SQUEEGEE_PUL_PIN      GPIO_PIN_3
+#define SQUEEGEE_DIR_PORT     GPIOC
+#define SQUEEGEE_DIR_PIN      GPIO_PIN_4
+
+/* Sensor de home squeegee (arriba): inductivo NPN normalmente abierto, activo en bajo */
+#define SQUEEGEE_HOME_PORT    GPIOC
+#define SQUEEGEE_HOME_PIN     GPIO_PIN_7
+#define SQUEEGEE_HOME_ACTIVE  GPIO_PIN_RESET
+
+/* Nivel de DIR que sube el squeegee hacia su sensor de home.
+   TODO: confirmar el sentido en banco. */
+#define SQUEEGEE_HOME_DIR     GPIO_PIN_RESET
+
+/* Sensor de prenda: NPN de colector abierto, activo en bajo */
+#define PRENDA_PORT           GPIOB
+#define PRENDA_PIN            GPIO_PIN_0
+#define PRENDA_ACTIVE         GPIO_PIN_RESET
+
 /* LEDs de la tarjeta (activos en bajo) */
 #define LED_D2_PORT           GPIOA
 #define LED_D2_PIN            GPIO_PIN_6

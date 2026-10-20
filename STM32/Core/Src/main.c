@@ -217,12 +217,13 @@ void SystemClock_Config(void)
 
 /* USER CODE BEGIN 4 */
 
-/* Configura los LEDs, las salidas STEP/DIR del stroke y la entrada del sensor de home. */
+/* Configura los LEDs, las salidas STEP/DIR de los ejes y las entradas de los sensores. */
 static void MX_GPIO_Init(void)
 {
   GPIO_InitTypeDef GPIO_InitStruct = {0};
 
   __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOC_CLK_ENABLE();
 
   /* LEDs activos en bajo: SET = apagado */
@@ -242,11 +243,19 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(STROKE_PUL_PORT, &GPIO_InitStruct);
 
-  /* Sensor NPN de colector abierto: necesita pull-up */
-  GPIO_InitStruct.Pin = STROKE_HOME_PIN;
+  HAL_GPIO_WritePin(SQUEEGEE_PUL_PORT, SQUEEGEE_PUL_PIN, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(SQUEEGEE_DIR_PORT, SQUEEGEE_DIR_PIN, GPIO_PIN_RESET);
+  GPIO_InitStruct.Pin = SQUEEGEE_PUL_PIN | SQUEEGEE_DIR_PIN;
+  HAL_GPIO_Init(SQUEEGEE_PUL_PORT, &GPIO_InitStruct);
+
+  /* Sensores NPN de colector abierto: necesitan pull-up */
+  GPIO_InitStruct.Pin = STROKE_HOME_PIN | SQUEEGEE_HOME_PIN;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(STROKE_HOME_PORT, &GPIO_InitStruct);
+
+  GPIO_InitStruct.Pin = PRENDA_PIN;
+  HAL_GPIO_Init(PRENDA_PORT, &GPIO_InitStruct);
 }
 
 /* El contador de ciclos DWT es la base de tiempo de los pulsos y del filtro del sensor. */
@@ -258,7 +267,7 @@ static void DWT_Init(void)
 }
 
 /* D3 refleja el estado de la maquina: apagado = sin home, parpadeo lento = haciendo home,
-   fijo = en home, parpadeo muy lento = jog, parpadeo rapido = error. */
+   fijo = en home, parpadeo muy lento = jog, parpadeo medio = imprimiendo, parpadeo rapido = error. */
 static void StatusLed_Update(void)
 {
   uint32_t tick = HAL_GetTick();
@@ -269,6 +278,7 @@ static void StatusLed_Update(void)
     case MAQ_HACIENDO_HOME: led_on = ((tick / 250U) % 2U) == 0U; break;
     case MAQ_EN_HOME:       led_on = 1U;                         break;
     case MAQ_JOG:           led_on = ((tick / 500U) % 2U) == 0U; break;
+    case MAQ_IMPRIMIENDO:   led_on = ((tick / 125U) % 2U) == 0U; break;
     case MAQ_ERROR:         led_on = ((tick / 62U) % 2U) == 0U;  break;
     case MAQ_SIN_HOME:
     default:                led_on = 0U;                         break;

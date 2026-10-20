@@ -143,6 +143,7 @@ void Axis_Init(Axis_t *axis)
 {
   Move_Stop(axis);
   axis->jog_active = 0U;
+  axis->move_active = 0U;
   axis->position = 0;
   axis->home_state = AXIS_HOME_IDLE;
   axis->sensor_active = Sensor_ReadRaw(axis);
@@ -163,6 +164,8 @@ void Axis_StartHome(Axis_t *axis)
 {
   uint32_t lock = Axis_Lock();
 
+  /* El home cancela cualquier movimiento a posicion pendiente */
+  axis->move_active = 0U;
   if (axis->sensor_active)
   {
     axis->home_state = AXIS_HOME_SALIR_DEL_SENSOR;
@@ -208,6 +211,41 @@ void Axis_JogStop(Axis_t *axis)
 uint8_t Axis_IsJogging(const Axis_t *axis)
 {
   return axis->jog_active;
+}
+
+/* Mueve a una posicion absoluta en pasos desde home, a velocidad constante.
+   El destino se limita a [0, max_travel_steps]. Devuelve 0 si el eje no tiene home o esta en jog. */
+uint8_t Axis_MoveTo(Axis_t *axis, int32_t target, uint32_t sps)
+{
+  uint32_t lock = Axis_Lock();
+  uint8_t started = 0U;
+
+  if (axis->home_state == AXIS_HOME_HECHO && !axis->jog_active)
+  {
+    if (target < 0)
+    {
+      target = 0;
+    }
+    if (target > axis->max_travel_steps)
+    {
+      target = axis->max_travel_steps;
+    }
+
+    if (target != axis->position)
+    {
+      Move_Start(axis, (target < axis->position) ? 1U : 0U, sps);
+      axis->move_target = target;
+      axis->move_active = 1U;
+    }
+    started = 1U;
+  }
+  Axis_Unlock(lock);
+  return started;
+}
+
+uint8_t Axis_IsMoving(const Axis_t *axis)
+{
+  return axis->move_active;
 }
 
 /* Debe llamarse a frecuencia fija desde la interrupcion AXIS_TICK_IRQn: su resolucion
@@ -278,6 +316,12 @@ void Axis_Update(Axis_t *axis)
     case AXIS_HOME_ERROR:
     default:
       break;
+  }
+
+  if (axis->move_active && axis->position == axis->move_target)
+  {
+    Move_Stop(axis);
+    axis->move_active = 0U;
   }
 
   Move_Tick(axis);

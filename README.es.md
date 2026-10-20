@@ -10,13 +10,17 @@ Corre en un STM32F407 (tarjeta DevEBox "STM32F4VE"), maneja dos motores paso a p
 
 Lo que funciona y compila hoy: el home del eje stroke con un sensor inductivo, el jog manual y las pantallas de la Nextion (botón de home, estado de la máquina, ajuste de velocidades, jog). El cableado del driver del stroke está validado en banco.
 
-Lo que falta: el eje del squeegee, las rampas de aceleración, guardar parámetros en flash y el paro de emergencia por hardware. Además migré hace poco el firmware a FreeRTOS; esa versión compila, pero todavía no la he corrido con el motor y la pantalla conectados.
+Recién agregado y sin probar en banco: el eje del squeegee y un primer ciclo de impresión automático. El home ahora sube el squeegee hasta su sensor y después hace el home del stroke. Con la máquina en home, al colocar una prenda (sensor de presencia) hace una sola pasada: el stroke sale 5", el squeegee baja 2", el stroke regresa y el squeegee sube. Para imprimir otra vez hay que retirar la prenda y volver a ponerla. Los pasos por pulgada son provisionales hasta calibrarlos con la mecánica.
+
+Lo que falta: probar todo en banco, las rampas de aceleración, un paro del ciclo desde la pantalla, guardar parámetros en flash y el paro de emergencia por hardware. Además migré hace poco el firmware a FreeRTOS; esa versión compila, pero todavía no la he corrido con el motor y la pantalla conectados.
 
 ## Algunas decisiones de diseño
 
 **Los pulsos del motor salen de una interrupción de timer, no de una tarea.** Una tarea despertada por el tick del RTOS no puede pasar de un paso por milisegundo y tiene jitter, que un motor paso a paso nota como ruido y pasos perdidos. TIM7 se dispara cada 25 µs y genera los flancos de STEP, el filtro del sensor y la secuencia de home. Como esa interrupción es más urgente que el límite de FreeRTOS, nunca llama a su API; las tareas hablan con ella mediante secciones críticas cortas.
 
 **La pantalla pide y el firmware decide.** Al mantener el jog, la pantalla envía una orden cada cierto tiempo. Si las órdenes se detienen 300 ms (cable desconectado, pantalla congelada), el motor se detiene. El jog además se bloquea en el sensor de home y en un límite de recorrido, diga lo que diga la pantalla.
+
+**En el ciclo de impresión los ejes se mueven de uno en uno.** Cada movimiento empieza solo cuando el anterior terminó, así el squeegee nunca baja ni sube con el stroke en marcha. Es más lento que moverlos a la vez, pero más fácil de verificar mientras la mecánica no esté definida.
 
 **El paro de emergencia tiene que ser de hardware.** Debe cortar la alimentación de los drivers sin importar lo que haga el firmware. Por eso no considero un paro por software como sustituto, y sigue en la lista de pendientes.
 
@@ -28,19 +32,21 @@ El firmware se divide en módulos pequeños: `axis` maneja un eje paso a paso (p
 - 2× drivers DM556 con cableado de cátodo común: el "+" de cada señal va al GPIO y el "−" a GND. Los 3.3 V del GPIO bastan, sin transistor.
 - 2× motores paso a paso LDO-86STH98-554A.
 - Pantalla Nextion NX4827T043_011, 480×272.
-- Sensores inductivos NPN (normalmente abiertos) para el home.
+- Sensores inductivos NPN (normalmente abiertos) para el home y un sensor NPN de presencia de prenda.
 
 | Función | Pin |
 |---|---|
 | Stroke STEP / DIR | PC0 / PC1 |
 | Sensor de home del stroke | PC6 |
-| Squeegee STEP / DIR / sensor (reservados) | PC3 / PC4 / PC7 |
+| Squeegee STEP / DIR | PC3 / PC4 |
+| Sensor de home del squeegee (arriba) | PC7 |
+| Sensor de prenda, activo en bajo | PB0 |
 | TX / RX de la tarjeta hacia la Nextion | PA9 / PA10 |
 | LEDs de la tarjeta, activos en bajo | PA6 (D2), PA7 (D3) |
 
 Pines que conviene evitar en esta tarjeta: PA11/PA12 (USB), PA13/PA14 (SWD), PB3–PB5 (probable flash SPI), PC8–PC12 y PD2 (probable microSD) y los puertos D/E (probable bus FSMC).
 
-El LED D3 muestra el estado de la máquina: apagado sin home, parpadeo lento haciendo home, fijo en home, parpadeo muy lento en jog y parpadeo rápido en error. Si D2 y D3 quedan fijos y encendidos, el RTOS detectó un desbordamiento de pila o se quedó sin memoria.
+El LED D3 muestra el estado de la máquina: apagado sin home, parpadeo lento haciendo home, fijo en home, parpadeo muy lento en jog, parpadeo medio imprimiendo y parpadeo rápido en error. Si D2 y D3 quedan fijos y encendidos, el RTOS detectó un desbordamiento de pila o se quedó sin memoria.
 
 ## Compilar
 

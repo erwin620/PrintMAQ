@@ -56,6 +56,8 @@ typedef struct
   uint8_t  moving;
   uint8_t  jog_active;
   uint8_t  jog_away;
+  uint8_t  move_active;
+  int32_t  move_target;
   uint8_t  pul_high;
   uint8_t  sensor_active;
   uint8_t  sensor_count;
@@ -69,6 +71,8 @@ void Axis_SetHomeSpeed(Axis_t *axis, uint32_t fast_sps, uint32_t slow_sps);
 uint8_t Axis_JogStart(Axis_t *axis, uint8_t away_from_home, uint32_t sps);
 void Axis_JogStop(Axis_t *axis);
 uint8_t Axis_IsJogging(const Axis_t *axis);
+uint8_t Axis_MoveTo(Axis_t *axis, int32_t target, uint32_t sps);
+uint8_t Axis_IsMoving(const Axis_t *axis);
 uint8_t Axis_IsHoming(const Axis_t *axis);
 uint8_t Axis_IsHomed(const Axis_t *axis);
 uint8_t Axis_HasError(const Axis_t *axis);

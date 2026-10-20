@@ -15,6 +15,7 @@
 #define COLOR_VERDE      2016U
 #define COLOR_AZUL       1055U
 #define COLOR_ROJO       63488U
+#define COLOR_NARANJA    64512U
 #define COLOR_NEGRO      0U
 #define COLOR_BLANCO     65535U
 
@@ -153,6 +154,7 @@ static uint8_t Send_State(void)
     case MAQ_HACIENDO_HOME: txt = "Haciendo home"; bco = COLOR_AMARILLO; pco = COLOR_NEGRO;  break;
     case MAQ_EN_HOME:       txt = "En home";       bco = COLOR_VERDE;    pco = COLOR_NEGRO;  break;
     case MAQ_JOG:           txt = "Moviendo";      bco = COLOR_AZUL;     pco = COLOR_BLANCO; break;
+    case MAQ_IMPRIMIENDO:   txt = "Imprimiendo";   bco = COLOR_NARANJA;  pco = COLOR_NEGRO;  break;
     case MAQ_ERROR:         txt = "Error";         bco = COLOR_ROJO;     pco = COLOR_BLANCO; break;
     case MAQ_SIN_HOME:
     default:                txt = "Sin home";      bco = COLOR_GRIS;     pco = COLOR_BLANCO; break;

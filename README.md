@@ -10,13 +10,17 @@ It runs on an STM32F407 (a DevEBox "STM32F4VE" board), drives two stepper motors
 
 What works and builds today: homing of the stroke axis with an inductive sensor, manual jog, and the Nextion screens (home button, machine state, speed settings, jog). The wiring of the stroke driver is validated on the bench.
 
-What is missing: the squeegee axis, acceleration ramps, saving parameters to flash and the hardware emergency stop. I also moved the firmware to FreeRTOS recently and that version compiles, but I haven't run it yet with the motor and the display connected.
+Just added and not yet tested on the bench: the squeegee axis and a first automatic print cycle. Homing now raises the squeegee to its sensor and then homes the stroke. With the machine at home, placing a garment (presence sensor) triggers a single pass: the stroke moves out 5", the squeegee drops 2", the stroke returns and the squeegee goes back up. To print again, the garment has to be removed and placed again. Steps per inch are provisional until they're calibrated against the mechanics.
+
+What is missing: bench testing all of the above, acceleration ramps, a way to stop the cycle from the display, saving parameters to flash and the hardware emergency stop. I also moved the firmware to FreeRTOS recently and that version compiles, but I haven't run it yet with the motor and the display connected.
 
 ## A few design decisions
 
 **Motor pulses come from a timer interrupt, not from a task.** A task woken by the RTOS tick can't go faster than one step per millisecond and it jitters, which a stepper motor notices as noise and lost steps. TIM7 fires every 25 µs and generates the STEP edges, the sensor filtering and the homing sequence. Because that interrupt is more urgent than FreeRTOS's own limit, it never calls the RTOS API; the tasks talk to it through short critical sections.
 
 **The display only asks, the firmware decides.** Pressing jog on the screen sends a command every so often. If the commands stop for 300 ms (cable out, screen frozen), the motor stops. The jog is also blocked at the home sensor and at a travel limit, whatever the screen says.
+
+**In the print cycle the axes move one at a time.** Each move starts only after the previous one has finished, so the squeegee never goes up or down while the stroke is moving. It's slower than moving both at once, but easier to verify while the mechanics aren't settled.
 
 **The emergency stop has to be hardware.** It must cut the power of the drivers regardless of what the firmware is doing. That's why I'm not treating a software stop as a substitute, and why it's still listed as missing.
 
@@ -28,19 +32,21 @@ The firmware is split in a few small modules: `axis` handles one stepper axis (p
 - 2× DM556 drivers, wired common-cathode: the "+" of each signal goes to the GPIO and the "−" to GND. The 3.3 V of the GPIO is enough, no transistor needed.
 - 2× LDO-86STH98-554A stepper motors.
 - Nextion NX4827T043_011 display, 480×272.
-- Inductive NPN sensors (normally open) for home.
+- Inductive NPN sensors (normally open) for home and an NPN garment presence sensor.
 
 | Function | Pin |
 |---|---|
 | Stroke STEP / DIR | PC0 / PC1 |
 | Stroke home sensor | PC6 |
-| Squeegee STEP / DIR / sensor (reserved) | PC3 / PC4 / PC7 |
+| Squeegee STEP / DIR | PC3 / PC4 |
+| Squeegee home sensor (up) | PC7 |
+| Garment sensor, active low | PB0 |
 | Nextion TX / RX on the board | PA9 / PA10 |
 | Onboard LEDs, active low | PA6 (D2), PA7 (D3) |
 
 Pins worth avoiding on this board: PA11/PA12 (USB), PA13/PA14 (SWD), PB3–PB5 (probably the SPI flash), PC8–PC12 and PD2 (probably the microSD slot) and the D/E ports (probably the FSMC bus).
 
-LED D3 shows the machine state: off when not homed, slow blink while homing, solid at home, very slow blink while jogging and fast blink on error. If D2 and D3 are both solid on, the RTOS caught a stack overflow or ran out of memory.
+LED D3 shows the machine state: off when not homed, slow blink while homing, solid at home, very slow blink while jogging, medium blink while printing and fast blink on error. If D2 and D3 are both solid on, the RTOS caught a stack overflow or ran out of memory.
 
 ## Building
 

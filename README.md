@@ -75,3 +75,7 @@ Open `HMI/PrintMaq.HMI` with Nextion Editor and compile it (the exported `.tft` 
 STM32/    STM32CubeIDE project (application code in Core/, ST HAL and FreeRTOS in Drivers/ and Middlewares/)
 HMI/      Nextion Editor project
 ```
+
+## License
+
+My code is released under the [MIT License](LICENSE). The ST HAL and CMSIS in `STM32/Drivers/` and FreeRTOS in `STM32/Middlewares/` keep their own licenses.

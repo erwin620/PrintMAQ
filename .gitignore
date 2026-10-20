@@ -1,0 +1,16 @@
+# Resultados de compilacion (se regeneran con el build)
+STM32/Debug/
+STM32/Release/
+
+# Configuracion local del IDE
+STM32/.settings/
+
+# Scaffold de prueba sin uso
+Nueva carpeta/
+
+# Capturas de pantalla sueltas
+Captura de pantalla*.png
+
+# Sistema operativo
+Thumbs.db
+desktop.ini

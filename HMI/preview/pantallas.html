@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>007 · HMI estilo Nothing</title>
+<link href="https://fonts.googleapis.com/css2?family=Doto:wght@700;900&display=swap" rel="stylesheet">
+<style>
+  body {
+    background: #3a3a3a;
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+  }
+  .card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-name {
+    color: #ffffff;
+    font-size: 16px;
+    align-self: flex-start;
+  }
+  .pair {
+    display: flex;
+    gap: 16px;
+  }
+  .screen {
+    position: relative;
+    width: 480px;
+    height: 272px;
+    overflow: hidden;
+    background: #000000;
+    flex: 0 0 auto;
+  }
+</style>
+</head>
+<body>
+<script src="screens.js"></script>
+<script>
+  var q = new URLSearchParams(location.search);
+  var lang = q.get("lang") === "es" ? "es" : "en";
+
+  var langBar = document.createElement("div");
+  langBar.style.display = "flex";
+  langBar.style.gap = "12px";
+  ["en", "es"].forEach(function (l) {
+    var a = document.createElement("a");
+    a.href = "?lang=" + l;
+    a.textContent = l.toUpperCase();
+    a.style.color = "#ffffff";
+    a.style.fontFamily = "Arial, sans-serif";
+    a.style.fontSize = "16px";
+    a.style.textDecoration = "none";
+    a.style.opacity = (l === lang) ? "1" : "0.5";
+    langBar.appendChild(a);
+  });
+  document.body.appendChild(langBar);
+
+  var pages = ["main", "menu", "jog", "ajustes", "impresion", "teclado"];
+  pages.forEach(function (page) {
+    var card = document.createElement("div");
+    card.className = "card";
+
+    var name = document.createElement("div");
+    name.className = "card-name";
+    name.textContent = page;
+    card.appendChild(name);
+
+    var pair = document.createElement("div");
+    pair.className = "pair";
+
+    var normal = document.createElement("div");
+    normal.className = "screen";
+    normal.appendChild(window.PM_SCREENS.build(page, { pressed: false, bg: false, lang: lang, overlay: page === "teclado" }));
+    pair.appendChild(normal);
+
+    var pressed = document.createElement("div");
+    pressed.className = "screen";
+    pressed.appendChild(window.PM_SCREENS.build(page, { pressed: true, bg: false, lang: lang, overlay: page === "teclado" }));
+    pair.appendChild(pressed);
+
+    card.appendChild(pair);
+    document.body.appendChild(card);
+  });
+
+  var card = document.createElement("div");
+  card.className = "card";
+  var cardName = document.createElement("div");
+  cardName.className = "card-name";
+  cardName.textContent = "estados";
+  card.appendChild(cardName);
+  card.appendChild(window.PM_SCREENS.build("estados", { pressed: false, bg: false, lang: lang }));
+  document.body.appendChild(card);
+</script>
+</body>
+</html>

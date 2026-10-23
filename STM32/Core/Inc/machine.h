@@ -24,6 +24,8 @@ void Machine_RequestHome(void);
 Machine_State_t Machine_GetState(void);
 void Machine_SetHomeSpeed(uint32_t fast_sps, uint32_t slow_sps);
 void Machine_GetHomeSpeed(uint32_t *fast_sps, uint32_t *slow_sps);
+void Machine_SetPrintSpeed(uint32_t stroke_sps, uint32_t squeegee_sps);
+void Machine_GetPrintSpeed(uint32_t *stroke_sps, uint32_t *squeegee_sps);
 void Machine_JogRequest(int8_t dir);   /* +1 = hacia afuera del home, -1 = hacia el home */
 void Machine_JogStop(void);
 

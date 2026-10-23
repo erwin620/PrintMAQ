@@ -42,7 +42,8 @@
 #define SQUEEGEE_STEPS_PER_INCH   1000
 
 /* Ciclo de impresion: recorrido del stroke hacia afuera y bajada del squeegee, ambos desde home.
-   Los destinos deben quedar dentro del limite de recorrido de cada eje o Axis_MoveTo los recorta. */
+   Los destinos deben quedar dentro del limite de recorrido de cada eje o Axis_MoveTo los recorta.
+   Las velocidades son los valores por defecto; la HMI puede cambiarlas. */
 #define PRINT_STROKE_STEPS        (5 * STROKE_STEPS_PER_INCH)
 #define PRINT_SQUEEGEE_STEPS      (2 * SQUEEGEE_STEPS_PER_INCH)
 #define PRINT_STROKE_SPS          400U
@@ -71,6 +72,11 @@ static Axis_t squeegee_axis;
 static volatile Machine_State_t machine_state = MAQ_SIN_HOME;
 static Home_Fase_t home_fase = HOME_FASE_SQUEEGEE;
 static Print_Step_t print_step = PRINT_SALIDA_STROKE;
+static uint32_t print_stroke_sps   = PRINT_STROKE_SPS;
+static uint32_t print_squeegee_sps = PRINT_SQUEEGEE_SPS;
+/* Copia fijada al iniciar el ciclo: un cambio desde la HMI a mitad de ciclo no altera ese ciclo */
+static uint32_t cycle_stroke_sps;
+static uint32_t cycle_squeegee_sps;
 static int8_t jog_dir = 0;
 static uint32_t jog_last_request_ms = 0U;
 
@@ -206,7 +212,10 @@ static void Home_Update(void)
 
 static void Print_Start(void)
 {
-  if (Axis_MoveTo(&stroke_axis, PRINT_STROKE_STEPS, PRINT_STROKE_SPS))
+  cycle_stroke_sps = print_stroke_sps;
+  cycle_squeegee_sps = print_squeegee_sps;
+
+  if (Axis_MoveTo(&stroke_axis, PRINT_STROKE_STEPS, cycle_stroke_sps))
   {
     print_step = PRINT_SALIDA_STROKE;
     machine_state = MAQ_IMPRIMIENDO;
@@ -231,17 +240,17 @@ static void Print_Update(void)
   switch (print_step)
   {
     case PRINT_SALIDA_STROKE:
-      ok = Axis_MoveTo(&squeegee_axis, PRINT_SQUEEGEE_STEPS, PRINT_SQUEEGEE_SPS);
+      ok = Axis_MoveTo(&squeegee_axis, PRINT_SQUEEGEE_STEPS, cycle_squeegee_sps);
       print_step = PRINT_BAJA_SQUEEGEE;
       break;
 
     case PRINT_BAJA_SQUEEGEE:
-      ok = Axis_MoveTo(&stroke_axis, 0, PRINT_STROKE_SPS);
+      ok = Axis_MoveTo(&stroke_axis, 0, cycle_stroke_sps);
       print_step = PRINT_REGRESO_STROKE;
       break;
 
     case PRINT_REGRESO_STROKE:
-      ok = Axis_MoveTo(&squeegee_axis, 0, PRINT_SQUEEGEE_SPS);
+      ok = Axis_MoveTo(&squeegee_axis, 0, cycle_squeegee_sps);
       print_step = PRINT_SUBE_SQUEEGEE;
       break;
 
@@ -326,6 +335,21 @@ void Machine_GetHomeSpeed(uint32_t *fast_sps, uint32_t *slow_sps)
 {
   *fast_sps = stroke_axis.home_fast_sps;
   *slow_sps = stroke_axis.home_slow_sps;
+}
+
+/* La seccion critica evita que Print_Start copie una velocidad nueva y otra vieja. */
+void Machine_SetPrintSpeed(uint32_t stroke_sps, uint32_t squeegee_sps)
+{
+  taskENTER_CRITICAL();
+  print_stroke_sps = Clamp_Speed(stroke_sps);
+  print_squeegee_sps = Clamp_Speed(squeegee_sps);
+  taskEXIT_CRITICAL();
+}
+
+void Machine_GetPrintSpeed(uint32_t *stroke_sps, uint32_t *squeegee_sps)
+{
+  *stroke_sps = print_stroke_sps;
+  *squeegee_sps = print_squeegee_sps;
 }
 
 /* Solo se acepta con el home hecho. Cada llamada renueva el tiempo del hombre muerto. */

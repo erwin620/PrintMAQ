@@ -24,7 +24,7 @@ static volatile uint16_t rx_head, rx_tail;
 static volatile uint8_t  tx_buf[TX_SIZE];
 static volatile uint16_t tx_head, tx_tail;
 
-static uint8_t pend_state, pend_speeds, pend_saved;
+static uint8_t pend_state, pend_speeds, pend_print_speeds, pend_saved;
 static int16_t last_sent_state = -1;
 
 void USART1_IRQHandler(void)
@@ -183,6 +183,17 @@ static uint8_t Send_Speeds(void)
   return Tx_Write(m.data, m.len);
 }
 
+static uint8_t Send_PrintSpeeds(void)
+{
+  Msg_t m = {{0}, 0U};
+  uint32_t stroke, squeegee;
+
+  Machine_GetPrintSpeed(&stroke, &squeegee);
+  Msg_AttrNum(&m, "impresion.n_strk.val=", stroke);
+  Msg_AttrNum(&m, "impresion.n_sqg.val=", squeegee);
+  return Tx_Write(m.data, m.len);
+}
+
 static uint8_t Send_Saved(void)
 {
   Msg_t m = {{0}, 0U};
@@ -211,6 +222,7 @@ static uint8_t Payload_Len(uint8_t cmd)
     case 'J': return 1U;
     case 'P': return 1U;
     case 'V': return 4U;
+    case 'I': return 4U;
     default:  return 0xFFU;   /* comando desconocido */
   }
 }
@@ -239,9 +251,20 @@ static void Dispatch(void)
       break;
     }
 
+    case 'I':
+    {
+      uint32_t stroke = (uint32_t)rx_payload[0] | ((uint32_t)rx_payload[1] << 8);
+      uint32_t squeegee = (uint32_t)rx_payload[2] | ((uint32_t)rx_payload[3] << 8);
+      Machine_SetPrintSpeed(stroke, squeegee);
+      pend_print_speeds = 1U;   /* la pantalla muestra el valor realmente aplicado */
+      pend_saved = 1U;
+      break;
+    }
+
     case 'P':
       if (rx_payload[0] == '0')      { pend_state = 1U; }
       else if (rx_payload[0] == '1') { pend_speeds = 1U; }
+      else if (rx_payload[0] == '2') { pend_print_speeds = 1U; }
       break;
 
     default:
@@ -343,6 +366,7 @@ void Hmi_PushAll(void)
 {
   pend_state = 1U;
   pend_speeds = 1U;
+  pend_print_speeds = 1U;
 }
 
 void Hmi_Update(void)
@@ -366,7 +390,11 @@ void Hmi_Update(void)
   {
     pend_speeds = 0U;
   }
-  if (pend_saved && !pend_speeds && Send_Saved())
+  if (pend_print_speeds && Send_PrintSpeeds())
+  {
+    pend_print_speeds = 0U;
+  }
+  if (pend_saved && !pend_speeds && !pend_print_speeds && Send_Saved())
   {
     pend_saved = 0U;
   }

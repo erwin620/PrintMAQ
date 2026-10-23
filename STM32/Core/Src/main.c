@@ -24,6 +24,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "machine.h"
+#include "settings.h"
 #include "hmi.h"
 /* USER CODE END Includes */
 
@@ -119,6 +120,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
   MX_GPIO_Init();
   DWT_Init();
+  Settings_Init();
   Machine_Init();
   Hmi_Init();
   /* USER CODE END 2 */
@@ -342,6 +344,8 @@ void StartDefaultTask(void *argument)
   for(;;)
   {
     Machine_Update();
+    /* Misma tarea que Machine_Update: ningun movimiento puede arrancar a mitad de una grabacion */
+    Settings_Update(Machine_IsIdle());
     osDelay(1);
   }
   /* USER CODE END 5 */

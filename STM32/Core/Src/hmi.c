@@ -4,6 +4,7 @@
 #include "hmi.h"
 #include "main.h"
 #include "machine.h"
+#include "settings.h"
 
 #define RX_SIZE   128U   /* potencia de 2: los indices se envuelven con una mascara */
 #define TX_SIZE   256U
@@ -25,7 +26,7 @@ static volatile uint16_t rx_head, rx_tail;
 static volatile uint8_t  tx_buf[TX_SIZE];
 static volatile uint16_t tx_head, tx_tail;
 
-static uint8_t pend_state, pend_speeds, pend_print_speeds, pend_saved;
+static uint8_t pend_state, pend_speeds, pend_print_speeds, pend_saved, pend_lang;
 static int16_t last_sent_state = -1;
 
 void USART1_IRQHandler(void)
@@ -147,19 +148,20 @@ static uint8_t Send_State(void)
 {
   Msg_t m = {{0}, 0U};
   Machine_State_t st = Machine_GetState();
+  uint8_t es = (Settings_GetLang() == LANG_ES) ? 1U : 0U;
   const char *txt;
   uint32_t pco;
   const uint32_t bco = COLOR_NEGRO;
 
   switch (st)
   {
-    case MAQ_HACIENDO_HOME: txt = "HACIENDO HOME"; pco = COLOR_AVISO;          break;
-    case MAQ_EN_HOME:       txt = "EN HOME";       pco = COLOR_EXITO;          break;
-    case MAQ_JOG:           txt = "MOVIENDO";      pco = COLOR_TEXTO_PRIMARIO; break;
-    case MAQ_IMPRIMIENDO:   txt = "IMPRIMIENDO";   pco = COLOR_TEXTO_DISPLAY;  break;
-    case MAQ_ERROR:         txt = "ERROR";         pco = COLOR_ACENTO;         break;
+    case MAQ_HACIENDO_HOME: txt = es ? "HACIENDO HOME" : "HOMING";  pco = COLOR_AVISO;          break;
+    case MAQ_EN_HOME:       txt = es ? "EN HOME" : "HOMED";         pco = COLOR_EXITO;          break;
+    case MAQ_JOG:           txt = es ? "MOVIENDO" : "MOVING";       pco = COLOR_TEXTO_PRIMARIO; break;
+    case MAQ_IMPRIMIENDO:   txt = es ? "IMPRIMIENDO" : "PRINTING";  pco = COLOR_TEXTO_DISPLAY;  break;
+    case MAQ_ERROR:         txt = "ERROR";                          pco = COLOR_ACENTO;         break;
     case MAQ_SIN_HOME:
-    default:                txt = "SIN HOME";      pco = COLOR_TEXTO_SECUND;   break;
+    default:                txt = es ? "SIN HOME" : "NOT HOMED";    pco = COLOR_TEXTO_SECUND;   break;
   }
 
   Msg_AttrTxt(&m, "main.t_estado.txt=", txt);
@@ -200,7 +202,15 @@ static uint8_t Send_Saved(void)
 {
   Msg_t m = {{0}, 0U};
 
-  Msg_AttrTxt(&m, "t_msg.txt=", "[GUARDADO]");
+  Msg_AttrTxt(&m, "t_msg.txt=", (Settings_GetLang() == LANG_ES) ? "[GUARDADO]" : "[SAVED]");
+  return Tx_Write(m.data, m.len);
+}
+
+static uint8_t Send_Lang(void)
+{
+  Msg_t m = {{0}, 0U};
+
+  Msg_AttrNum(&m, "main.va_lang.val=", (uint32_t)Settings_GetLang());
   return Tx_Write(m.data, m.len);
 }
 
@@ -222,6 +232,7 @@ static uint8_t Payload_Len(uint8_t cmd)
   {
     case 'H': return 0U;
     case 'J': return 1U;
+    case 'L': return 1U;
     case 'P': return 1U;
     case 'V': return 4U;
     case 'I': return 4U;
@@ -263,8 +274,15 @@ static void Dispatch(void)
       break;
     }
 
+    case 'L':
+      if (rx_payload[0] == '0')      { Settings_SetLang(LANG_EN); }
+      else if (rx_payload[0] == '1') { Settings_SetLang(LANG_ES); }
+      pend_lang = 1U;    /* confirma el idioma aplicado */
+      pend_state = 1U;   /* el estado se reescribe en el idioma nuevo */
+      break;
+
     case 'P':
-      if (rx_payload[0] == '0')      { pend_state = 1U; }
+      if (rx_payload[0] == '0')      { pend_state = 1U; pend_lang = 1U; }
       else if (rx_payload[0] == '1') { pend_speeds = 1U; }
       else if (rx_payload[0] == '2') { pend_print_speeds = 1U; }
       break;
@@ -369,6 +387,7 @@ void Hmi_PushAll(void)
   pend_state = 1U;
   pend_speeds = 1U;
   pend_print_speeds = 1U;
+  pend_lang = 1U;
 }
 
 void Hmi_Update(void)
@@ -378,6 +397,12 @@ void Hmi_Update(void)
   while ((b = Rx_Pop()) >= 0)
   {
     Parse_Byte((uint8_t)b);
+  }
+
+  /* El idioma va antes que el estado: la pantalla recarga sus imagenes si cambio */
+  if (pend_lang && Send_Lang())
+  {
+    pend_lang = 0U;
   }
 
   /* Si el mensaje no cabe en el buffer, queda pendiente y se reintenta en la siguiente llamada */

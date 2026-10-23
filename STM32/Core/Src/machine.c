@@ -326,6 +326,14 @@ Machine_State_t Machine_GetState(void)
   return machine_state;
 }
 
+/* Sin ejes en movimiento: condicion para operaciones que detienen la CPU, como grabar la flash. */
+uint8_t Machine_IsIdle(void)
+{
+  Machine_State_t st = machine_state;
+
+  return (st == MAQ_SIN_HOME || st == MAQ_EN_HOME || st == MAQ_ERROR) ? 1U : 0U;
+}
+
 void Machine_SetHomeSpeed(uint32_t fast_sps, uint32_t slow_sps)
 {
   Axis_SetHomeSpeed(&stroke_axis, Clamp_Speed(fast_sps), Clamp_Speed(slow_sps));

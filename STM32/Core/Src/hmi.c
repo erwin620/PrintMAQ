@@ -9,15 +9,16 @@
 #define TX_SIZE   256U
 #define MSG_MAX   160U
 
-/* Colores RGB565 del recuadro de estado; deben coincidir con los de la pantalla Nextion */
-#define COLOR_GRIS       33840U
-#define COLOR_AMARILLO   65504U
-#define COLOR_VERDE      2016U
-#define COLOR_AZUL       1055U
-#define COLOR_ROJO       63488U
-#define COLOR_NARANJA    64512U
-#define COLOR_NEGRO      0U
-#define COLOR_BLANCO     65535U
+/* Colores RGB565 del texto de estado (sistema Nothing, modo oscuro): el color va en el valor,
+   no en el fondo. Error usa el rojo de acento del sistema.
+   Deben coincidir con pantallas.md de la feature 007. */
+#define COLOR_NEGRO           0U
+#define COLOR_TEXTO_SECUND    40147U
+#define COLOR_TEXTO_PRIMARIO  61277U
+#define COLOR_TEXTO_DISPLAY   65535U
+#define COLOR_EXITO           19691U
+#define COLOR_AVISO           54600U
+#define COLOR_ACENTO          53444U
 
 static volatile uint8_t  rx_buf[RX_SIZE];
 static volatile uint16_t rx_head, rx_tail;
@@ -147,17 +148,18 @@ static uint8_t Send_State(void)
   Msg_t m = {{0}, 0U};
   Machine_State_t st = Machine_GetState();
   const char *txt;
-  uint32_t bco, pco;
+  uint32_t pco;
+  const uint32_t bco = COLOR_NEGRO;
 
   switch (st)
   {
-    case MAQ_HACIENDO_HOME: txt = "Haciendo home"; bco = COLOR_AMARILLO; pco = COLOR_NEGRO;  break;
-    case MAQ_EN_HOME:       txt = "En home";       bco = COLOR_VERDE;    pco = COLOR_NEGRO;  break;
-    case MAQ_JOG:           txt = "Moviendo";      bco = COLOR_AZUL;     pco = COLOR_BLANCO; break;
-    case MAQ_IMPRIMIENDO:   txt = "Imprimiendo";   bco = COLOR_NARANJA;  pco = COLOR_NEGRO;  break;
-    case MAQ_ERROR:         txt = "Error";         bco = COLOR_ROJO;     pco = COLOR_BLANCO; break;
+    case MAQ_HACIENDO_HOME: txt = "HACIENDO HOME"; pco = COLOR_AVISO;          break;
+    case MAQ_EN_HOME:       txt = "EN HOME";       pco = COLOR_EXITO;          break;
+    case MAQ_JOG:           txt = "MOVIENDO";      pco = COLOR_TEXTO_PRIMARIO; break;
+    case MAQ_IMPRIMIENDO:   txt = "IMPRIMIENDO";   pco = COLOR_TEXTO_DISPLAY;  break;
+    case MAQ_ERROR:         txt = "ERROR";         pco = COLOR_ACENTO;         break;
     case MAQ_SIN_HOME:
-    default:                txt = "Sin home";      bco = COLOR_GRIS;     pco = COLOR_BLANCO; break;
+    default:                txt = "SIN HOME";      pco = COLOR_TEXTO_SECUND;   break;
   }
 
   Msg_AttrTxt(&m, "main.t_estado.txt=", txt);
@@ -198,7 +200,7 @@ static uint8_t Send_Saved(void)
 {
   Msg_t m = {{0}, 0U};
 
-  Msg_AttrTxt(&m, "t_msg.txt=", "Guardado");
+  Msg_AttrTxt(&m, "t_msg.txt=", "[GUARDADO]");
   return Tx_Write(m.data, m.len);
 }
 

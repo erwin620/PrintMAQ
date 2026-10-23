@@ -106,6 +106,15 @@ void Error_Handler(void);
 #define HMI_TX_PIN            GPIO_PIN_9
 #define HMI_RX_PIN            GPIO_PIN_10
 #define HMI_BAUD              9600U
+
+/* Modo de banco sin HMI: K_UP pide el home para probar sin la pantalla Nextion.
+   TODO: comentar este define cuando la HMI este cargada y probada. */
+#define PRUEBA_BANCO_SIN_HMI
+
+/* Boton K_UP de la tarjeta: conecta a 3.3 V al presionarse, activo en alto */
+#define KEY_UP_PORT           GPIOA
+#define KEY_UP_PIN            GPIO_PIN_0
+#define KEY_UP_ACTIVE         GPIO_PIN_SET
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

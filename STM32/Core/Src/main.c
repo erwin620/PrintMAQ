@@ -78,6 +78,9 @@ void StartTask04(void *argument);
 static void MX_GPIO_Init(void);
 static void DWT_Init(void);
 static void StatusLed_Update(void);
+#ifdef PRUEBA_BANCO_SIN_HMI
+static void KeyUp_Update(void);
+#endif
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -256,6 +259,14 @@ static void MX_GPIO_Init(void)
 
   GPIO_InitStruct.Pin = PRENDA_PIN;
   HAL_GPIO_Init(PRENDA_PORT, &GPIO_InitStruct);
+
+#ifdef PRUEBA_BANCO_SIN_HMI
+  /* El boton no tiene resistencia externa: sin pull-down la entrada quedaria flotando */
+  GPIO_InitStruct.Pin = KEY_UP_PIN;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  HAL_GPIO_Init(KEY_UP_PORT, &GPIO_InitStruct);
+#endif
 }
 
 /* El contador de ciclos DWT es la base de tiempo de los pulsos y del filtro del sensor. */
@@ -280,12 +291,39 @@ static void StatusLed_Update(void)
     case MAQ_JOG:           led_on = ((tick / 500U) % 2U) == 0U; break;
     case MAQ_IMPRIMIENDO:   led_on = ((tick / 125U) % 2U) == 0U; break;
     case MAQ_ERROR:         led_on = ((tick / 62U) % 2U) == 0U;  break;
+    /* Destello corto en vez de apagado: distingue "esperando home" de "firmware detenido" */
     case MAQ_SIN_HOME:
-    default:                led_on = 0U;                         break;
+    default:                led_on = (tick % 2000U) < 60U;       break;
   }
 
   HAL_GPIO_WritePin(LED_D3_PORT, LED_D3_PIN, led_on ? GPIO_PIN_RESET : GPIO_PIN_SET);
 }
+
+#ifdef PRUEBA_BANCO_SIN_HMI
+/* Se llama cada 20 ms desde LedTask: exigir dos lecturas seguidas presionado filtra el rebote.
+   Solo el flanco de presion pide el home; mantener el boton no lo repite. */
+static void KeyUp_Update(void)
+{
+  static uint8_t prev_pressed = 0U;
+  static uint8_t last_raw = 0U;
+  uint8_t raw = (HAL_GPIO_ReadPin(KEY_UP_PORT, KEY_UP_PIN) == KEY_UP_ACTIVE) ? 1U : 0U;
+  uint8_t pressed = (raw && last_raw) ? 1U : 0U;
+  Machine_State_t st = Machine_GetState();
+
+  /* D2 refleja el boton mientras ningun eje lo usa como indicador de pasos: confirma en banco que PA0 se lee */
+  if (st == MAQ_SIN_HOME || st == MAQ_ERROR)
+  {
+    HAL_GPIO_WritePin(LED_D2_PORT, LED_D2_PIN, raw ? GPIO_PIN_RESET : GPIO_PIN_SET);
+  }
+
+  if (pressed && !prev_pressed)
+  {
+    Machine_RequestHome();
+  }
+  prev_pressed = pressed;
+  last_raw = raw;
+}
+#endif
 
 /* USER CODE END 4 */
 
@@ -341,6 +379,9 @@ void StartTask04(void *argument)
   /* USER CODE BEGIN StartTask04 */
   for(;;)
   {
+#ifdef PRUEBA_BANCO_SIN_HMI
+    KeyUp_Update();
+#endif
     StatusLed_Update();
     osDelay(20);
   }
